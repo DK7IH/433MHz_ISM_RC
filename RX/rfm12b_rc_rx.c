@@ -5,7 +5,7 @@
 /*                    MCU: ATMEL AVR ATmega328p, 8 MHz              */
 /*                                                                  */
 /*  Compiler:         GCC (GNU AVR C-Compiler)                      */
-/*  Author:           Peter Rachow (DK7IH)                          */ 
+/*  Author:           Peter Baier  (DK7IH)                          */ 
 /*  Last change:      MAY 2021                                      */
 /********************************************************************/
 //                        RECEIVER module                           //
@@ -25,7 +25,7 @@
 #ifdef F_CPU
 #undef F_CPU 
 #endif
-#define F_CPU 160000000 
+#define F_CPU 80000000 
 
 //Data transfer via RFM12B
 #define TWAIT 300 //Wait Milliceonds for SPI
@@ -46,28 +46,10 @@
 #define LED_ON 1
 #define LED_OFF 0
 
-//USART
-#define BAUD 2400
+//UART
+
 #define BUFLEN0 128
 #define BUFLEN1 32
-
-#define ASYNCHRONOUS (0<<UMSEL00) // USART Mode Selection
-
-#define DISABLED    (0<<UPM00)
-#define EVEN_PARITY (2<<UPM00)
-#define ODD_PARITY  (3<<UPM00)
-#define PARITY_MODE  DISABLED // USART Parity Bit Selection
-
-#define ONE_BIT (0<<USBS0)
-#define TWO_BIT (1<<USBS0)
-#define STOP_BIT ONE_BIT      // USART Stop Bit Selection
-
-#define FIVE_BIT  (0<<UCSZ00)
-#define SIX_BIT   (1<<UCSZ00)
-#define SEVEN_BIT (2<<UCSZ00)
-#define EIGHT_BIT (3<<UCSZ00)
-#define DATA_BIT  EIGHT_BIT  // USART Data Bit Selection
-
 
 //////////////////////////////////////
 //   L   C   D   
@@ -211,9 +193,9 @@ void rfm12b_setpower(unsigned char, unsigned char);
 void rfm12b_txchar(unsigned char);
 unsigned char rfm12b_rxchar(void);
 
-//USART
-void usart_init(void);
-int usart_rx(void);
+//UART
+void uart_init(void);
+int uart_rx(void);
 
 //MISC
 int main(void);
@@ -642,21 +624,20 @@ ISR(TIMER2_COMPA_vect)
     ms++; 
 }
 
-void usart_init(void)
+void uart_init(void)
 {
 	// Set Baud Rate
-	int baudset = F_CPU/16/BAUD-1;
-	UBRR0H = baudset >> 8;
-	UBRR0L = baudset;
+	UBRR0H = 0;
+	UBRR0L = 105; //4800 Bd.
 	
 	// Set Frame Format
-	UCSR0C = ASYNCHRONOUS | PARITY_MODE | STOP_BIT | DATA_BIT;
+	UCSR0C = (0<<UMSEL00) | (3 << UCSZ00) | (0<<USBS0) | (0<<UPM00); //asynchronous, 8 data bits, 1 stop bit, no parity
 	
-	// Enable Receiver and Transmitter
-	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
+	// Enable Receiver
+	UCSR0B = (1<<RXEN0);
 }
 
-int usart_rx(void)
+int uart_rx(void)
 {
 	while(!(UCSR0A & (1 << RXC0))); /* Wait for data to be received */
 	
@@ -672,6 +653,7 @@ char calc_checksum(char *s)
 	{
 		sum += s[t1++];
 	}
+	
 	if(sum < 32) //Avoid characters coded <32!
 	{
 	    sum += 32;
@@ -747,8 +729,8 @@ int main(void)
             |(1<<CS10);               // and set at BOTTOM. Clock Prescaler is 1024.
     OCR1A = 255; //Motor OFF!
     
-    //USART
-    usart_init();	
+    //UART
+    uart_init();	
     
    	//TWI
 	twi_init();
@@ -774,8 +756,9 @@ int main(void)
     spi_send_word(0xC040);      //1.66MHz,2.2V                        (16. Low Battery Detector and Microcontroller Clock Divider Command)  
   
     _delay_ms(500);
+    
     spi_send_word(0x8208);			        // Turn on crystal
-	rfm12b_setfreq((433.92-430.0)/0.0025);
+	rfm12b_setfreq((433.92 - 430.0)/0.0025);
 	rfm12b_setbandwidth(4, 1, 4);			// 200kHz band width, -6dB gain, DRSSI threshold: -79dBm 
 	rfm12b_setbaud(19200);					// 19200 baud
 	rfm12b_setpower(4, 6);			  	    // 1mW output power, 120kHz frequency shift
@@ -793,10 +776,15 @@ int main(void)
 		
 	p0 = -1;
 	p1 = -1;
-			
+		
     for(;;)
     {
-        ch = usart_rx();     //Get char from UASRT
+        ch = uart_rx();     //Get char from UASRT
+        
+        /* TEST only!
+        oled_putstring(0, 0, "    ", 0);
+        oled_putnumber(0, 0, ch, -1, 0);
+        */
         if(ch == 2)
         {      
 			p0 = t1;
@@ -806,6 +794,7 @@ int main(void)
         {   
 			p1 = t1;
         }   
+        
         rxbuf0[t1] = ch;
         
         if((p0 > -1) && (p1 > -1) && (p0 < p1))
@@ -891,6 +880,7 @@ int main(void)
 		{ 
 			t1 = 0;
 		}				
+    
     }
 	return 0;
 }

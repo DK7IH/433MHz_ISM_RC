@@ -26,7 +26,7 @@
 #ifdef F_CPU
 #undef F_CPU 
 #endif
-#define F_CPU 160000000 
+#define F_CPU 8000000
 
 //Data transfer via RFM12B
 #define TWAIT 300 //Wait Milliceonds for SPI
@@ -44,25 +44,7 @@
 #define PWMOUT 2 //Output for PWM driver
 #define LED   4  //PORTB
 
-//USART
-#define BAUD 2400
-
-#define ASYNCHRONOUS (0<<UMSEL00) // USART Mode Selection
-
-#define DISABLED    (0<<UPM00)
-#define EVEN_PARITY (2<<UPM00)
-#define ODD_PARITY  (3<<UPM00)
-#define PARITY_MODE  DISABLED // USART Parity Bit Selection
-
-#define ONE_BIT (0<<USBS0)
-#define TWO_BIT (1<<USBS0)
-#define STOP_BIT ONE_BIT      // USART Stop Bit Selection
-
-#define FIVE_BIT  (0<<UCSZ00)
-#define SIX_BIT   (1<<UCSZ00)
-#define SEVEN_BIT (2<<UCSZ00)
-#define EIGHT_BIT (3<<UCSZ00)
-#define DATA_BIT  EIGHT_BIT  // USART Data Bit Selection
+#define UARTDELAY 5 //Delay in ms for transmission of single char
 
 //Input line
 //ADC 0 for speet potentiometer
@@ -210,10 +192,10 @@ unsigned char rfm12b_rxchar(void);
 
 void send_speed(void);
 
-//USART
-void usart_init(void);
-void usart_tx_ch(char);
-void usart_tx_str(char*);
+//UART
+void uart_init(void);
+void uart_tx_ch(char);
+void uart_tx_str(char*);
 char calc_checksum(char*);
 
 //MISC
@@ -631,7 +613,7 @@ void send_speed(void)
 	    s1[0] = 'S';
 	    s1[1] = '=';
 	    strcat(s1, s0);
-	    usart_tx_str(s1);
+	    uart_tx_str(s1);
 		oled_putstring(0, 0, s1, 0);
         _delay_ms(100);
     }
@@ -670,45 +652,45 @@ ISR(TIMER2_COMPA_vect)
     ms++; 
 }
 
-void usart_init(void)
+void uart_init(void)
 {
 	// Set Baud Rate
-	int baudset = F_CPU/16/BAUD-1;
-	UBRR0H = baudset >> 8;
-	UBRR0L = baudset;
+	UBRR0H = 0;
+	UBRR0L = 103; //4800 Bd.
 	
 	// Set Frame Format
-	UCSR0C = ASYNCHRONOUS | PARITY_MODE | STOP_BIT | DATA_BIT;
+	UCSR0C = (0<<UMSEL00) | (3 << UCSZ00) | (0<<USBS0) | (0<<UPM00); //asynchronous, 8 data bits, 1 stop bit, no parity
 	
-	// Enable Receiver and Transmitter
-	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
+	// Enable  Transmitter
+	UCSR0B = (1<<TXEN0);
 }
 
-void usart_tx_ch(char data)
+void uart_tx_ch(char data)
 {
 	while (!( UCSR0A & (1<<UDRE0))); /* Wait for empty transmit buffer       */
 			
 	UDR0 = data;					 /* Put data into buffer, sends the data */
 }	
 
-void usart_tx_str(char *data)
+void uart_tx_str(char *data)
 {
 	int t1 = 0;
 	int cs = 0;
 	
-	usart_tx_ch(2); //Mark begin of message string
-	_delay_ms(20);
+	uart_tx_ch(2); //Mark begin of message string
+	_delay_ms(UARTDELAY);
 	while(data[t1]) //Transmit data
 	{
-	    usart_tx_ch(data[t1++]);
-	    _delay_ms(20);
+	    uart_tx_ch(data[t1++]);
+	    _delay_ms(UARTDELAY);
 	}   
-	_delay_ms(20);
-	
+		
 	cs = calc_checksum(data);
-	usart_tx_ch(cs);
-	    	    
-	usart_tx_ch(3);
+	
+	uart_tx_ch(cs);
+	_delay_ms(UARTDELAY);
+	
+	uart_tx_ch(3);
 }	
 
 char calc_checksum(char *s)
@@ -757,8 +739,8 @@ int main(void)
     TCCR1B = (1<<WGM12)|(1<<CS12)     // OC1A and OC1B are cleared on compare match
             |(1<<CS10);               // and set at BOTTOM. Clock Prescaler is 1024.
 
-    //USART
-    usart_init();	
+    //UART
+    uart_init();	
     
 	//TWI
 	twi_init();
@@ -791,6 +773,7 @@ int main(void)
 	rfm12b_setpower(4, 6);			  	    // 1mW output power, 120kHz frequency shift
     	
 	spi_send_word(0x8238);  //2. Power Management Command TX on
+	
 	DDRD |= FSK; //FSK out
 	 
 	sei();
@@ -798,88 +781,11 @@ int main(void)
     for(;;)
     {
         //Transmit value from manual controller
+		/* TEST only!
+		uart_tx_ch(127);
+       _delay_ms(5);		
+		*/		
 		send_speed();
     }
 	return 0;
 }
-
-/*
- 
-
-int main()
-{
-    int s0, s1, d;
-    long f0 = 0b1101011011;
-    unsigned char fa0[32];
-    
-    long g0 = 0b10011;
-    unsigned char ga0[32];
-    
-    f0 <<= 4;//0b11010110110000
-    int t0;
-    
-    for(t0 = 0; t0 < 32; t0++)
-    {
-        fa0[t0] = 0;
-        ga0[t0] = 0;
-    }    
-    
-    for(t0 = 0; t0 < 31; t0++)
-    {
-        if(f0 & (1 << t0))
-        {
-            fa0[t0] = 1;
-        }
-    }
-    
-    for(t0 = 0; t0 < 31; t0++)
-    {
-        if(g0 & (1 << t0))
-        {
-            ga0[t0] = 1;
-        }
-    }
-        
-    for(t0 = 31; t0 >= 0; t0--)
-    {
-        printf("%d", fa0[t0]);
-    }
-    
-    printf("\n");
-    
-    for(t0 = 31; t0 >= 0; t0--)
-    {
-        printf("%d", ga0[t0]);
-    }
-    
-    for(t0 = 31; t0 >= 0; t0--)
-    {
-        if(fa0[t0])
-        {
-            s0 = t0;
-            break;
-        }
-    }
-    printf("\n");
-    printf("%d", s0);
-    
-    for(t0 = 31; t0 >= 0; t0--)
-    {
-        if(ga0[t0])
-        {
-            s1 = t0;
-            break;
-        }
-    }
-    
-    printf("\n");
-    printf("%d", s1);
-    
-    d = s0 - s1;
-    
-    printf("\n");
-    printf("%d", d);
-    
-    return 0;
-}
-*/
