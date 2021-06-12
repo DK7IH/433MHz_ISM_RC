@@ -43,11 +43,7 @@
 #define PWMOUT 2 //Output for PWM driver
 #define LED    4 //LED for showing valid data
 
-#define LED_ON 1
-#define LED_OFF 0
-
 //UART
-
 #define BUFLEN0 128
 #define BUFLEN1 32
 
@@ -702,6 +698,7 @@ int main(void)
 	char ch;
 	char *rxbuf0, *rxbuf1;	
 	int chksm;
+	char loco_id = 'A';
 		
 	// P O R T S
     //OUTPUT 		
@@ -711,7 +708,9 @@ int main(void)
 	//INPUT
     PORTC = 0x30;//PC0: Pull-up for key switches with various resistors against GND 
 	             //I²C-Bus lines: PC4=SDA, PC5=SCL
-        		
+
+    led(0);
+            		
     //Timer 2 as counter for 1 millisecond fclock = 16MHz
     OCR2A = 62;
     TCCR2A |= (1 << WGM21); // Set to CTC Mode
@@ -824,35 +823,42 @@ int main(void)
 		    
 		    if(chksm == calc_checksum(rxbuf1)) //Data valid?
 		    {
-				led(LED_ON);
-				oled_putstring(0, 2, "OK.  ", 0);	
+				led(1);
+				oled_putstring(0, 2, "CHK.", 0);	
 				
-				//Get numeric value from string to determine speed setting
-				pwm = s2i(rxbuf1);
-		        oled_putstring(0, 1, "PWM=    ", 0);	
-		        oled_putnumber(4, 1, pwm, -1, 0);   
+				if(loco_id == rxbuf1[0]) //Loco ID correct? Range 'A' to 'Z'
+				{
+					switch(rxbuf1[2]) //Select command
+					{
+						case 'S':	//SPEED set. Get numeric value from string to determine speed setting
+					                pwm = s2i(rxbuf1);
+		        	                oled_putstring(0, 1, "PWM=    ", 0);	
+		        	                oled_putnumber(4, 1, pwm, -1, 0);   
 		        
-		        if(pwm > 0) //Set motor
-			    {
-				    //Set PWM output to motor, "center off"
-    			    if(pwm >= 128)
-			        {
-				        pwm = ((pwm - 128) << 1);
-				        PORTB &= ~RELAY;    
-			        }	
-			        else
-			        {
-				        pwm = (255 - (pwm << 1));
-  			            PORTB |= RELAY;
-  			        }    
-  			    }   
-			    OCR1A = 255 - pwm;
+		        	                if(pwm > 0) //Set motor
+			    	                {
+				    	                //Set PWM output to motor, "center off"
+    			    	                if(pwm >= 128)
+			        	                {
+				        	                pwm = ((pwm - 128) << 1);
+				        	                PORTB &= ~RELAY;    
+			        	                }	
+			        	                else
+			        	                {
+					                        pwm = (255 - (pwm << 1));
+  				                            PORTB |= RELAY;
+  				                        }    
+  				                    }   
+			    	                OCR1A = 255 - pwm;
+			    	                break;
+			    	}              
+			    }	
 		    }
 		    else    
 		    {
-		        oled_putstring(0, 2, "FAIL!", 0);	
+		        oled_putstring(0, 2, "ATT!", 0); //Invalid checksum!
 		        OCR1A = 255;
-		        led(LED_OFF);
+		        led(0);
 		    }    
 				
 		    //Empty rxbuf0

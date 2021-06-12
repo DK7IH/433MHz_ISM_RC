@@ -29,7 +29,7 @@
 #define F_CPU 8000000
 
 //Data transfer via RFM12B
-#define TWAIT 300 //Wait Milliceonds for SPI
+#define TWAIT 100 //Wait Microceonds for SPI
 
 //Output lines
 //TRX port & lines (PORTD)
@@ -190,7 +190,7 @@ void rfm12b_setpower(unsigned char, unsigned char);
 void rfm12b_txchar(unsigned char);
 unsigned char rfm12b_rxchar(void);
 
-void send_speed(void);
+void send_speed(char);
 
 //UART
 void uart_init(void);
@@ -586,7 +586,7 @@ void rfm12b_setpower(unsigned char power, unsigned char mod)
 }
 
 //Hand over ADC value from potentiometer to TX
-void send_speed(void)
+void send_speed(char loco_id)
 {	
 	int t1;
 	char locospeed;
@@ -610,8 +610,10 @@ void send_speed(void)
 	    {
 		    s1[t1] = 0;
 	    }	
-	    s1[0] = 'S';
-	    s1[1] = '=';
+	    s1[0] = loco_id;
+	    s1[1] = ' ';
+	    s1[2] = 'S';
+	    s1[3] = '=';
 	    strcat(s1, s0);
 	    uart_tx_str(s1);
 		oled_putstring(0, 0, s1, 0);
@@ -785,7 +787,7 @@ int main(void)
 		uart_tx_ch(127);
        _delay_ms(5);		
 		*/		
-		send_speed();
+		send_speed('A');
     }
 	return 0;
 }
