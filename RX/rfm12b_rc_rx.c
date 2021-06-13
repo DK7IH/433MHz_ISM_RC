@@ -660,18 +660,19 @@ char calc_checksum(char *s)
 	return sum;
 }	
 
+//Filters all the numbers '0' to '9' from a 
+//string and makes a long integer from data
 long s2i(char *s)
 {
     int t0 = 0;
     unsigned long x = 1;
     unsigned long n = 0;
     
-    for(t0 = strlen(s); t0 >= 0 ;t0--)
+    for(t0 = 6; t0 > 3 ;t0--)
     {
         if((s[t0] >= '0') && (s[t0] <= '9'))
         {
-            printf("%ld\n", n);
-            n += (s[t0] - 48) * x;
+			n += (s[t0] - 48) * x;
             x *= 10;
         }
     }

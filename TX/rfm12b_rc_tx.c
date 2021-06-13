@@ -177,7 +177,7 @@ void oled_clear_section(int, int, int);
 int xp2(int xp);
 
 //String
-int int2asc(long num, int dec, char *buf, int buflen);
+void int2asc(int, char*);
 
 //RFM12B
 int spi_send_word(unsigned short);
@@ -405,7 +405,7 @@ void oled_putnumber(int col, int row, long num, int dec, int inv)
     char *s = malloc(16);
 	if(s != NULL)
 	{
-	    int2asc(num, dec, s, 16);
+	    int2asc(num, s);
 	    oled_putstring(col, row, s, inv);
 	    free(s);
 	}	
@@ -427,73 +427,21 @@ void oled_clear_section(int x1, int x2, int row)
 //
 ////////////////////////////////
 //INT 2 ASC
-int int2asc(long num, int dec, char *buf, int buflen)
+void int2asc(int num, char *buf)
 {
-    int i, c, xp = 0, neg = 0;
-    long n, dd = 1E09;
+    int i, n, d = 100;
 
-    if(!num)
-	{
-	    *buf++ = '0';
-		*buf = 0;
-		return 1;
-	}	
-		
-    if(num < 0)
-    {
-     	neg = 1;
-	    n = num * -1;
-    }
-    else
-    {
-	    n = num;
-    }
+    n = num;
 
-    //Fill buffer with \0
-    for(i = 0; i < 12; i++)
+    while(d)
     {
-	    *(buf + i) = 0;
+	    i = n / d;
+	    n = n - i * d;
+	    *(buf++) = i + 48;
+	    *(buf + 1) = 0;
+	    d /= 10;
     }
-
-    c = 9; //Max. number of displayable digits
-    while(dd)
-    {
-	    i = n / dd;
-	    n = n - i * dd;
-	
-	    *(buf + 9 - c + xp) = i + 48;
-	    dd /= 10;
-	    if(c == dec && dec)
-	    {
-	        *(buf + 9 - c + ++xp) = '.';
-	    }
-	    c--;
-    }
-
-    //Search for 1st char different from '0'
-    i = 0;
-    while(*(buf + i) == 48)
-    {
-	    *(buf + i++) = 32;
-    }
-
-    //Add minus-sign if neccessary
-    if(neg)
-    {
-	    *(buf + --i) = '-';
-    }
-
-    //Eleminate leading spaces
-    c = 0;
-    while(*(buf + i))
-    {
-	    *(buf + c++) = *(buf + i++);
-    }
-    *(buf + c) = 0;
-	
-	return c;
 }
-
 
 /////////////////////////////
  // Data Display Functions  // 
@@ -604,7 +552,7 @@ void send_speed(char loco_id)
 	while(1)
 	{
 		locospeed = get_adc(0) >> 2;
-	    int2asc(locospeed, -1, s0, 7);
+	    int2asc(locospeed, s0);
 	    
 	    for(t1 = 0; t1 < 16; t1++)
 	    {
