@@ -1,6 +1,6 @@
 /********************************************************************/
 /* 433 MHz Radio Control for battery powered large scale model loco */
-/*                    TRX: RFM12B                                   */
+/*                    TRX: RFM12B 433MHz ISM                        */
 /*                    Display OLED SSD1306 64x32                    */
 /*                    MCU: ATMEL AVR ATmega328p, 8 MHz              */
 /*                                                                  */
@@ -28,20 +28,20 @@
 #define F_CPU 80000000 
 
 //Data transfer via RFM12B
-#define TWAIT 300 //Wait Milliceonds for SPI
+#define TWAIT 100 //Wait Microseconds for SPI
 
 //Output lines
 //TRX port & lines (PORTD)
-#define NSEL  4  //YELLOW
-#define SCK   8  //BLUE
-#define SDI   16  //VIOLET
-#define SDO   32
-#define FSK   64 //BROWN
+#define NSEL (1 << PD2)  //YELLOW
+#define SCK  (1 << PD3)  //BLUE
+#define SDI  (1 << PD4)  //VIOLET
+#define SDO  (1 << PD5)
+#define FSK  (1 << PD6) //BROWN
 
-//PORTB Relay & PWM out
-#define RELAY  1 //Relay PB0 for direction FWD/REV  GREEN
-#define PWMOUT 2 //Output for PWM driver
-#define LED    4 //LED for showing valid data
+//Relay, PWM, LED out (PORTB)
+#define RELAY  (1 << PB0) //Relay PB0 for direction FWD/REV  GREEN
+#define PWMOUT (1 << PB1) //Output for PWM driver
+#define LED    (1 << PB2) //LED for showing valid data
 
 //UART
 #define BUFLEN0 128
@@ -198,10 +198,10 @@ int main(void);
 int get_adc(int);
 char calc_checksum(char*);
 void led(int);
-
-int op_mode = 0; //1 = TX, 0 = RX
-unsigned long ms = 0;
 long s2i(char*);
+
+//Milliseconds elapsed
+unsigned long ms = 0;
 
 ///////////////////////////
 //
@@ -394,9 +394,16 @@ void oled_putstring(int col, int row, char *s, int inv)
 	
 	while(*s)
 	{
-	    oled_putchar1(c, row, *s++, inv);
-		c += 6;
-	}
+		if(*s <= 0x80)
+		{
+			oled_putchar1(c, row, *s++, inv);
+		    c += 6;
+		}
+		else
+		{    
+			s++;
+		}	
+	}   
 }
 
 //Print an integer/long to OLED
@@ -825,8 +832,7 @@ int main(void)
 		    if(chksm == calc_checksum(rxbuf1)) //Data valid?
 		    {
 				led(1);
-				oled_putstring(0, 2, "CHK.", 0);	
-				
+								
 				if(loco_id == rxbuf1[0]) //Loco ID correct? Range 'A' to 'Z'
 				{
 					switch(rxbuf1[2]) //Select command
@@ -857,12 +863,11 @@ int main(void)
 		    }
 		    else    
 		    {
-		        oled_putstring(0, 2, "ATT!", 0); //Invalid checksum!
+				led(0);
 		        OCR1A = 255;
-		        led(0);
 		    }    
 				
-		    //Empty rxbuf0
+		    //Init rxbuf0
 		    for(t2 = 0; t2 < BUFLEN0; t2++)
 		    {
 			    rxbuf0[t2] = 0;
@@ -871,12 +876,6 @@ int main(void)
 		    t1 = 0; //Reset rxbuf0 counter and position markers
 		    p0 = -1;
             p1 = -1;
-			    
-		    //Init rxbuf0
-		    for(t2 = 0; t2 < BUFLEN0; t2++)
-		    {
-			    rxbuf0[t2] = 0;
-		    }	
         }        		
         
         if(t1 < BUFLEN0)
