@@ -719,7 +719,7 @@ int main(void)
 
     led(0);
             		
-    //Timer 2 as counter for 1 millisecond fclock = 16MHz
+    //Timer 2 as counter for 1 millisecond fclock = 8MHz
     OCR2A = 62;
     TCCR2A |= (1 << WGM21); // Set to CTC Mode
     TIMSK2 |= (1 << OCIE2A); //Set interrupt on compare match

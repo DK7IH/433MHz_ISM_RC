@@ -33,16 +33,13 @@
 
 //Output lines
 //TRX port & lines (PORTD)
-#define NSEL  4
-#define SCK   8
-#define SDI   16
-#define SDO   32
-#define FSK   64
-//Relay
-#define RELAY 128  //Relay for direction FWD/REV
-
-#define PWMOUT 2 //Output for PWM driver
-#define LED   4  //PORTB
+//Output lines
+//TRX port & lines (PORTD)
+#define NSEL (1 << PD2)  //YELLOW
+#define SCK  (1 << PD3)  //BLUE
+#define SDI  (1 << PD4)  //VIOLET
+#define SDO  (1 << PD5)
+#define FSK  (1 << PD6) //BROWN
 
 #define UARTDELAY 5 //Delay in ms for transmission of single char
 
@@ -666,14 +663,13 @@ int main(void)
 {   		
 	// P O R T S
     //OUTPUT 		
-    DDRD = NSEL | SCK | SDI | RELAY;
-    DDRB |= PWMOUT | LED; //PWM out, LED
-            
+    DDRD = NSEL | SCK | SDI ;
+                
 	//INPUT
     PORTC = 0x30;//PC0: Pull-up for key switches with various resistors against GND 
 	             //I²C-Bus lines: PC4=SDA, PC5=SCL
 			
-    //Timer 2 as counter for 1 millisecond fclock = 16MHz
+    //Timer 2 as counter for 1 millisecond fclock = 8MHz
     OCR2A = 62;
     TCCR2A |= (1 << WGM21); // Set to CTC Mode
     TIMSK2 |= (1 << OCIE2A); //Set interrupt on compare match
